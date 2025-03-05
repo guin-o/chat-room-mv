@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Rooms</title>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-auth.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .chat-container {
+            width: 400px;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #message-box {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h2>Join or Create a Room</h2>
+
+        <div id="room-join">
+            <input type="text" id="room-name" placeholder="Enter room name" />
+            <input type="password" id="room-password" placeholder="Enter password" />
+            <button onclick="joinRoom()">Join Room</button>
+            <br />
+            <br />
+            <input type="text" id="new-room-name" placeholder="New room name" />
+            <input type="password" id="new-room-password" placeholder="New room password" />
+            <button onclick="createRoom()">Create Room</button>
+        </div>
+
+        <div id="chat-room" style="display: none;">
+            <h3 id="room-title"></h3>
+            <div id="message-box"></div>
+            <input type="text" id="message-input" placeholder="Type a message" />
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration and initialization
+        const firebaseConfig = {
+            apiKey: "AIzaSyCNYCN4tfKUuueRwMcB0GoDTPC2wGch5ho",
+            authDomain: "chat-room-96a01.firebaseapp.com",
+            projectId: "chat-room-96a01.firebaseapp.com",
+            storageBucket: "chat-room-96a01.firebasestorage.app",
+            messagingSenderId: "201803083735",
+            appId: "1:201803083735:web:1f4688f6f9885bc9712592",
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let currentRoom = "";
+
+        // Join an existing room
+        function joinRoom() {
+            const roomName = document.getElementById('room-name').value;
+            const password = document.getElementById('room-password').value;
+
+            // Check if room exists in Firestore
+            db.collection("rooms").doc(roomName).get().then((doc) => {
+                if (doc.exists && doc.data().password === password) {
+                    currentRoom = roomName;
+                    document.getElementById('room-title').innerText = `Room: ${roomName}`;
+                    document.getElementById('room-join').style.display = 'none';
+                    document.getElementById('chat-room').style.display = 'block';
+                    loadMessages(roomName);
+                } else {
+                    alert("Room not found or incorrect password.");
+                }
+            }).catch((error) => {
+                console.log("Error joining room: ", error);
+            });
+        }
+
+        // Create a new room
+        function createRoom() {
+            const roomName = document.getElementById('new-room-name').value;
+            const password = document.getElementById('new-room-password').value;
+
+            // Check if room already exists
+            db.collection("rooms").doc(roomName).get().then((doc) => {
+                if (doc.exists) {
+                    alert("Room already exists.");
+                } else {
+                    // Create new room in Firestore
+                    db.collection("rooms").doc(roomName).set({
+                        password: password,
+                        messages: []
+                    }).then(() => {
+                        currentRoom = roomName;
+                        document.getElementById('room-title').innerText = `Room: ${roomName}`;
+                        document.getElementById('room-join').style.display = 'none';
+                        document.getElementById('chat-room').style.display = 'block';
+                        loadMessages(roomName);
+                    }).catch((error) => {
+                        console.log("Error creating room: ", error);
+                    });
+                }
+            });
+        }
+
+        // Send a message to the room
+        function sendMessage() {
+            const message = document.getElementById('message-input').value;
+            if (message.trim() !== "") {
+                db.collection("rooms").doc(currentRoom).update({
+                    messages: firebase.firestore.FieldValue.arrayUnion(message)
+                }).then(() => {
+                    document.getElementById('message-input').value = '';
+                    loadMessages(currentRoom);
+                }).catch((error) => {
+                    console.log("Error sending message: ", error);
+                });
+            }
+        }
+
+        // Load messages for a room
+        function loadMessages(roomName) {
+            db.collection("rooms").doc(roomName).onSnapshot((doc) => {
+                const messages = doc.data().messages;
+                const messageBox = document.getElementById('message-box');
+                messageBox.innerHTML = ""; // Clear existing messages
+                messages.forEach((message) => {
+                    messageBox.innerHTML += `<p>${message}</p>`;
+                });
+                messageBox.scrollTop = messageBox.scrollHeight; // Scroll to bottom
+            });
+        }
+    </script>
+</body>
+</html>
